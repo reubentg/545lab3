@@ -219,10 +219,10 @@ if __name__ == '__main__':
     _lambda = 1.0
 
     # run with ROS
-    # rospy.init_node("mppi_control", anonymous=True) # Initialize the node
-    # mp = MPPIController(T, K, sigma, _lambda)
-    # rospy.spin()
+    rospy.init_node("mppi_control", anonymous=True) # Initialize the node
+    mp = MPPIController(T, K, sigma, _lambda)
+    rospy.spin()
 
     # test & DEBUG
     mp = MPPIController(T, K, sigma, _lambda)
-    test_MPPI(mp, 10, np.array([0., 0., 0.])))
+    test_MPPI(mp, 10, np.array([0., 0., 0.]))

@@ -3,7 +3,7 @@
     <!--
       Launch file for MPPI.py Python file
       -->
-    <node name="MPPI_node" pkg="lab3" type="MPPI.py" output="screen">
+    <node name="MPPI" pkg="lab3" type="MPPI.py" output="screen">
         <param name="bag_path" type="string" value="/home/tim/car_ws/src/lab3/bags/motion_data2.bag" /> <!-- Bag file is stored locally, not in GitHub (too big) -->
     </node>
 
