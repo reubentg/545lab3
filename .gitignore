@@ -105,3 +105,6 @@ venv.bak/
 
 # large bag files
 bags/motion_data2.bag
+
+# PyTorch models
+*.pt

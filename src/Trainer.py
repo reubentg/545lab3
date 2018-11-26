@@ -108,15 +108,19 @@ raw_datas = raw_datas[:idx, :]  # Clip to only data found from bag file
 raw_datas = raw_datas[np.abs(raw_datas[:, 3]) < 0.75]  # discard bad controls
 raw_datas = raw_datas[np.abs(raw_datas[:, 4]) < 0.36]  # discard bad controls
 
-x_datas = np.zeros((raw_datas.shape[0], INPUT_SIZE))
+x_datas = np.zeros((raw_datas.shape[0], INPUT_SIZE))    # 8 columns
 
-y_datas = np.zeros((raw_datas.shape[0], OUTPUT_SIZE))
+y_datas = np.zeros((raw_datas.shape[0], OUTPUT_SIZE))   # 3 columns
 
 dt = np.diff(raw_datas[:, 5])
 x_dot_col = np.append([0.0], np.diff(raw_datas[:, 0]), axis=0)
 y_dot_col = np.append([0.0], np.diff(raw_datas[:, 1]), axis=0)
 
 theta_dot_col = np.append([0.0], np.diff(raw_datas[:, 2]) / dt, axis=0)
+
+y_datas[:, 0] = x_dot_col
+y_datas[:, 1] = y_dot_col
+y_datas[:, 2] = theta_dot_col
 
 sin_thetas = np.sin(raw_datas[:, 2])
 cos_thetas = np.cos(raw_datas[:, 2])
@@ -129,6 +133,8 @@ x_datas[:, 4] = cos_thetas
 x_datas[:, 5] = raw_datas[:, 3]
 x_datas[:, 6] = raw_datas[:, 4]
 x_datas[:, 7] = np.append([0.0], dt, axis=0)
+
+
 
 # TODO - DONE
 # It is critical we properly handle theta-rollover: 
@@ -182,37 +188,45 @@ if CUDA_YES:
     dtype = torch.cuda.FloatTensor
 else:
     dtype = torch.Tensor
-D_in, H, D_out = INPUT_SIZE, 32, OUTPUT_SIZE
+D_in, H, D_out = INPUT_SIZE, 32, OUTPUT_SIZE    # input dimension, hidden dimension and output dimension
+
+# https://github.com/jcjohnson/pytorch-examples#pytorch-custom-nn-modules
 
 # Make validation set
 num_samples = x_datas.shape[0]
 rand_idx = np.random.permutation(num_samples)
-x_d = x_datas[rand_idx,:]
-y_d = y_datas[rand_idx,:]
+x_d = x_datas[rand_idx, :]
+y_d = y_datas[rand_idx, :]
 split = int(0.9*num_samples)
 x_tr = x_d[:split]
 y_tr = y_d[:split]
 x_tt = x_d[split:]
 y_tt = y_d[split:]
 
+print 'x_tr shape - ', x_tr.shape, 'y_tr shape - ', y_tr.shape
+
+"""
+The variables below are used as-is inside doTraining; passes into the Variable
+"""
 x = torch.from_numpy(x_tr.astype('float32')).type(dtype)
 y = torch.from_numpy(y_tr.astype('float32')).type(dtype)
 x_val = torch.from_numpy(x_tt.astype('float32')).type(dtype)
 y_val = torch.from_numpy(y_tt.astype('float32')).type(dtype)
 
+
 # TODO Model
 
 
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, d_in=D_in, h=H, d_out=D_out):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(8, 100)
-        self.fc2 = nn.Linear(100, 100)
-        self.fc3 = nn.Linear(100, 100)
-        self.fc4 = nn.Linear(100, 8)
+        self.fc1 = nn.Linear(d_in, h)
+        self.fc2 = nn.Linear(h, h)
+        self.fc3 = nn.Linear(h, h)
+        self.fc4 = nn.Linear(h, d_out)
 
     def forward(self, x):
-        x = x.view(-1,1)
+        x = x.view(-1, D_in)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
@@ -222,12 +236,22 @@ class Net(nn.Module):
 
 model = Net()
 
+""" 
+The Neural network takes in an 8 element vector
+
+    During training, we use x_datas as the input and y_datas as the expected output
+    
+    During prediction, the output of the NN is the x_dot, y_dot and theta_dot
+
+"""
+
 loss_fn = torch.nn.MSELoss(size_average=False)
 learning_rate = 1e-3
 opt = torch.optim.Adam(model.parameters(), lr=1e-3)  # learning_rate)
 
 
 def doTraining(model, loss_fn, filename, optimizer, N=5000):
+    print 'inside doTraining; N=%d' % N
     for t in range(N):
         y_pred = model(Variable(x))
         loss = loss_fn(y_pred, Variable(y, requires_grad=False))
@@ -243,7 +267,7 @@ def doTraining(model, loss_fn, filename, optimizer, N=5000):
     torch.save(model, filename)
 
 
-# doTraining(model, loss_fn, '/home/car-user/ee545_ws/src/lab3/src/haha.pt', opt, N=100)
+doTraining(model, loss_fn, '/home/car-user/ee545_ws/src/lab3/models/haha.pt', opt)
 
 # The following are functions meant for debugging and sanity checking your
 # model. You should use these and / or design your own testing tools.
